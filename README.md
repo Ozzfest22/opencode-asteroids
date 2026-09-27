@@ -45,4 +45,5 @@ Luego visita `http://localhost:3000`.
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides
 - Power-up **Velocidad**: la nave se mueve al doble de rápido durante 5 segundos (aparece periódicamente en el mapa)
+- Power-up **Escudo**: burbuja violeta que protege la nave durante 6 segundos; cualquier asteroide o estrella fugaz que toque se vaporiza sin causar daño (sin puntos)
 - Asteroide especial **estrella fugaz**: entra por un borde más rápido que los demás, cruza el mapa y desaparece a los 5 s; se destruye de un disparo (150 puntos) y mata a la nave si choca
