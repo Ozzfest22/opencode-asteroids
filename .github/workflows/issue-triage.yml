@@ -1,0 +1,110 @@
+name: issue-triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Formatear y etiquetar issue
+        uses: actions/github-script@v7
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const number = issue.number;
+
+            // ── Labels ─────────────────────────────────────────────
+            const LABELS = [
+              {
+                name: 'bug',
+                color: 'd73a4a',
+                description: 'Algo no funciona como debería',
+                keywords: ['falla', 'fallas', 'error', 'crash', 'no funciona', 'raya', 'rayado',
+                           'traba', 'freeze', 'bug', 'exception', 'excepción', 'bloquea'],
+              },
+              {
+                name: 'mejora',
+                color: 'a2eeef',
+                description: 'Sugerencia o nueva funcionalidad',
+                keywords: ['sugerencia', 'mejorar', 'mejora', 'agregar', 'añadir', 'anadir',
+                           'feature', 'enhancement', 'nuevo', 'nueva'],
+              },
+              {
+                name: 'documentación',
+                color: '0075ca',
+                description: 'Problema o mejora en la documentación',
+                keywords: ['readme', 'documentación', 'documentacion', 'doc', 'instrucciones'],
+              },
+              {
+                name: 'pregunta',
+                color: 'd876e3',
+                description: 'Duda sobre el proyecto',
+                keywords: ['pregunta', 'duda', 'cómo funciona', 'como funciona'],
+              },
+            ];
+            const FALLBACK = { name: 'revisar', color: 'fbca04', description: 'Pendiente de triage' };
+
+            const texto = ((issue.title || '') + ' ' + (issue.body || '')).toLowerCase();
+            const detectadas = LABELS.filter(l => l.keywords.some(k => texto.includes(k)));
+            const aAplicar = detectadas.length ? detectadas : [FALLBACK];
+
+            for (const label of [...detectadas, FALLBACK]) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label.name });
+              } catch (e) {
+                await github.rest.issues.createLabel({
+                  owner, repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: number,
+              labels: aAplicar.map(l => l.name),
+            });
+
+            // ── Metadatos (append sin tocar el texto original) ─────
+            const original = issue.body || '';
+
+            let commit = null;
+            try {
+              const repoInfo = await github.rest.repos.get({ owner, repo });
+              const rama = repoInfo.data.default_branch;
+              const { data } = await github.rest.repos.getBranch({ owner, repo, branch: rama });
+              commit = { rama, sha: data.commit.sha.substring(0, 7), msg: data.commit.commit.message.split('\n')[0] };
+            } catch (e) {
+              // sin acceso al repo: los metadatos de commit se omiten
+            }
+
+            const fecha = new Date(issue.created_at).toISOString().replace('T', ' ').substring(0, 16);
+            const lineas = [
+              '',
+              '---',
+              '',
+              '> **Metadatos automáticos**',
+              `> - **Issue:** #${number} — ${issue.title}`,
+              `> - **Autor:** @${issue.user.login}`,
+              `> - **Creado:** ${fecha} UTC`,
+            ];
+            if (commit) {
+              lineas.push(`> - **Rama principal:** \`${commit.rama}\` @ \`${commit.sha}\` — ${commit.msg}`);
+            }
+            lineas.push('');
+
+            await github.rest.issues.update({
+              owner, repo, issue_number: number,
+              body: original + lineas.join('\n'),
+            });
