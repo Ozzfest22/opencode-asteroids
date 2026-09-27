@@ -182,6 +182,7 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.speedTimer    = 0;   // power-up Velocidad activo
+    this.shieldTimer   = 0;   // power-up Escudo activo
     this.tripleTimer   = 0;   // power-up Triple Shot activo
     this.dead          = false;
   }
@@ -191,6 +192,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedTimer    > 0) this.speedTimer    -= dt;
+    if (this.shieldTimer   > 0) this.shieldTimer   -= dt;
     if (this.tripleTimer   > 0) this.tripleTimer   -= dt;
 
     const ROT   = 3.5;   // rad/s
@@ -235,6 +237,19 @@ class Ship {
 
   draw() {
     if (this.dead) return;
+
+    // Burbuja del escudo (se dibuja aunque la nave parpadee)
+    if (this.shieldTimer > 0) {
+      const alpha = 0.45 + 0.35 * Math.sin(this.shieldTimer * 6);
+      ctx.save();
+      ctx.strokeStyle = `rgba(187, 102, 255, ${alpha.toFixed(2)})`;   // #b6f
+      ctx.lineWidth   = 2;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Parpadeo durante invencibilidad de reaparición
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
@@ -265,14 +280,18 @@ class Ship {
   }
 }
 
-// ── Power-up (Velocidad / Triple Shot) ────────────────────────────────────────
-const POWER_COLORS = { speed: '#4ff', triple: '#f6a' };
+// ── Power-up (Velocidad / Escudo / Triple Shot) ───────────────────────────────
+const POWERUPS = {
+  speed:  { color: '#4ff', duration: 5 },
+  shield: { color: '#b6f', duration: 6 },
+  triple: { color: '#f6a', duration: 5 },
+};
 
 class PowerUp {
   constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
-    this.type = type;       // 'speed' | 'triple'
+    this.type = type;      // 'speed' | 'shield' | 'triple'
     this.radius = 14;
     this.ttl = 8;          // vida en pantalla
     this.rot = rand(0, Math.PI * 2);
@@ -292,7 +311,7 @@ class PowerUp {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    ctx.strokeStyle = POWER_COLORS[this.type];
+    ctx.strokeStyle = POWERUPS[this.type].color;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -300,21 +319,26 @@ class PowerUp {
     ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
     ctx.stroke();
 
-    if (this.type === 'speed') {
+    if (this.type === 'shield') {
+      // Anillo interior
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (this.type === 'triple') {
+      // Triple Shot: 3 puntos en línea recta
+      ctx.fillStyle = POWERUPS[this.type].color;
+      for (const dx of [-5, 0, 5]) {
+        ctx.beginPath();
+        ctx.arc(dx, 0, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
       // Chevron central
       ctx.beginPath();
       ctx.moveTo(-4, -6);
       ctx.lineTo( 5,  0);
       ctx.lineTo(-4,  6);
       ctx.stroke();
-    } else {
-      // Triple Shot: 3 puntos en línea recta
-      ctx.fillStyle = POWER_COLORS[this.type];
-      for (const dx of [-5, 0, 5]) {
-        ctx.beginPath();
-        ctx.arc(dx, 0, 1.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
 
     ctx.restore();
@@ -469,7 +493,8 @@ function spawnPowerUp() {
     x = rand(0, W);
     y = rand(0, H);
   } while (Math.hypot(x - W / 2, y - H / 2) < SAFE_DIST);
-  const type = Math.random() < 0.5 ? 'speed' : 'triple';
+  const keys = Object.keys(POWERUPS);
+  const type = keys[Math.floor(Math.random() * keys.length)];
   powerUps.push(new PowerUp(x, y, type));
 }
 
@@ -609,8 +634,8 @@ function update(dt) {
   for (const p of powerUps) {
     if (dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      if (p.type === 'speed') ship.speedTimer = 5;
-      else                    ship.tripleTimer = 5;
+      const def = POWERUPS[p.type];
+      ship[`${p.type}Timer`] = def.duration;
       explode(p.x, p.y, 6);
     }
   }
@@ -646,12 +671,18 @@ function update(dt) {
   shootingStars = shootingStars.filter(s => !s.dead);
   bullets   = bullets.filter(b => !b.dead);
 
-  // Nave vs asteroide
+  // Nave vs asteroide (el escudo los vaporiza sin dañar la nave)
   if (ship.invincible <= 0) {
+    const shielded = ship.shieldTimer > 0;
     for (const a of asteroids) {
       if (dist(ship, a) < ship.radius + a.radius * 0.82) {
-        killShip();
-        break;
+        if (shielded) {
+          a.dead = true;
+          explode(a.x, a.y, a.size * 4);
+        } else {
+          killShip();
+          break;
+        }
       }
     }
 
@@ -659,12 +690,21 @@ function update(dt) {
     if (!ship.dead) {
       for (const s of shootingStars) {
         if (dist(ship, s) < ship.radius + s.radius * 0.82) {
-          killShip();
-          break;
+          if (shielded) {
+            s.dead = true;
+            explode(s.x, s.y, 10);
+          } else {
+            killShip();
+            break;
+          }
         }
       }
     }
   }
+
+  // Limpieza de objetos vaporizados por el escudo
+  asteroids     = asteroids.filter(a => !a.dead);
+  shootingStars = shootingStars.filter(s => !s.dead);
 
   // Nivel completado
   if (asteroids.length === 0) nextLevel();
@@ -696,16 +736,24 @@ function drawHUD() {
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
 
+  let statusY = 48;
   if (ship.speedTimer > 0) {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#4ff';
-    ctx.fillText(`VELOCIDAD ${ship.speedTimer.toFixed(1)}s`, 14, 48);
+    ctx.fillText(`VELOCIDAD ${ship.speedTimer.toFixed(1)}s`, 14, statusY);
+    statusY += 22;
+  }
+  if (ship.shieldTimer > 0) {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#b6f';
+    ctx.fillText(`ESCUDO ${ship.shieldTimer.toFixed(1)}s`, 14, statusY);
+    statusY += 22;
   }
 
   if (ship.tripleTimer > 0) {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f6a';
-    ctx.fillText(`TRIPLE ${ship.tripleTimer.toFixed(1)}s`, 14, 66);
+    ctx.fillText(`TRIPLE ${ship.tripleTimer.toFixed(1)}s`, 14, statusY);
   }
 
   ctx.textAlign   = 'left';
