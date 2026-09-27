@@ -29,6 +29,9 @@ Luego visita `http://localhost:3000`.
 | `←` `→`   | Rotar nave |
 | `↑`       | Propulsar  |
 | `Espacio` | Disparar   |
+| `S`       | Abrir/cerrar el selector de skins (pausa el juego) |
+| `←` `→`   | Elegir skin (dentro del selector) |
+| `Espacio` / `Esc` | Confirmar skin y volver al juego |
 
 ## Puntuación
 
@@ -46,3 +49,7 @@ Luego visita `http://localhost:3000`.
 - Partículas de explosión al destruir asteroides
 - Power-up **Velocidad**: la nave se mueve al doble de rápido durante 5 segundos (aparece periódicamente en el mapa)
 - Asteroide especial **estrella fugaz**: entra por un borde más rápido que los demás, cruza el mapa y desaparece a los 5 s; se destruye de un disparo (150 puntos) y mata a la nave si choca
+
+## Skins
+
+Cambia la apariencia de la nave con la tecla `S`: se abre un selector con vista previa de cada skin y el juego queda pausado. Cada skin define el color de la línea, el color de la llama del propulsor y su propia silueta (las colisiones siguen siendo idénticas en todas). Las skins incluidas son **CLÁSICA**, **FLECHA**, **DELTA** y **DIAMANTE**, y la elegida se guarda en `localStorage` para recordarla entre sesiones.
