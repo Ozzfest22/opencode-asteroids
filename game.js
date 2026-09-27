@@ -121,19 +121,23 @@ class Asteroid {
 // ── Skins ─────────────────────────────────────────────────────────────────────
 // Cada skin define línea, llama del propulsor y silueta propia.
 // `tail` es la x donde arranca la llama en espacio local de la nave.
+// `scale` amplía la nave (tamaño y colisión); `pointsMult` multiplica los puntos.
 const SKINS = [
-  { name: 'CLÁSICA',  stroke: '#fff',
+  { name: 'CLÁSICA',  stroke: '#fff', scale: 1, pointsMult: 1,
     flame: 'rgba(255, 130, 0, 0.85)', tail: -8,
     verts: [[20, 0], [-12, -9], [-7, 0], [-12, 9]] },
-  { name: 'FLECHA',   stroke: '#4ff',
+  { name: 'FLECHA',   stroke: '#4ff', scale: 1, pointsMult: 1,
     flame: 'rgba(120, 255, 160, 0.85)', tail: -6,
     verts: [[22, 0], [-9, -5], [-4, 0], [-9, 5]] },
-  { name: 'DELTA',    stroke: '#ffd24a',
+  { name: 'DELTA',    stroke: '#ffd24a', scale: 1, pointsMult: 1,
     flame: 'rgba(255, 190, 60, 0.85)', tail: -8,
     verts: [[19, 0], [-14, -12], [-8, 0], [-14, 12]] },
-  { name: 'DIAMANTE', stroke: '#ff6cf5',
+  { name: 'DIAMANTE', stroke: '#ff6cf5', scale: 1, pointsMult: 1,
     flame: 'rgba(255, 108, 245, 0.85)', tail: -13,
     verts: [[21, 0], [0, -8], [-14, 0], [0, 8]] },
+  { name: 'MORADA',   stroke: '#a855f7', scale: 2, pointsMult: 2,
+    flame: 'rgba(168, 85, 247, 0.85)', tail: -12,
+    verts: [[23, 0], [-10, -15], [-16, 0], [-10, 15]] },
 ];
 
 const SKIN_KEY = 'asteroids.skin';
@@ -153,8 +157,13 @@ function saveSkin() {
 
 function stepSkin(dir) {
   currentSkin = wrap(currentSkin + dir, SKINS.length);
+  // El tamaño de la nave depende de la skin: se aplica al instante
+  if (ship) ship.radius = SHIP_RADIUS * skinScale();
   saveSkin();
 }
+
+const skinScale  = () => SKINS[currentSkin].scale;
+const pointsMult = () => SKINS[currentSkin].pointsMult;
 
 loadSkin();
 
@@ -168,6 +177,8 @@ function strokePoly(pts, scale = 1) {
 }
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
+const SHIP_RADIUS = 12;   // radio base de colisión (se amplía con skin.scale)
+
 class Ship {
   constructor() { this.reset(); }
 
@@ -177,7 +188,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = SHIP_RADIUS * skinScale();
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -218,12 +229,13 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const scale = skinScale();
+    const NOSE = 21 * scale;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleTimer > 0) {
       // 3 balas paralelas: misma dirección, desplazadas en perpendicular
-      const OFFSET = 8;
+      const OFFSET = 8 * scale;
       const px = Math.cos(this.angle + Math.PI / 2) * OFFSET;
       const py = Math.sin(this.angle + Math.PI / 2) * OFFSET;
       return [
@@ -245,7 +257,7 @@ class Ship {
       ctx.strokeStyle = `rgba(187, 102, 255, ${alpha.toFixed(2)})`;   // #b6f
       ctx.lineWidth   = 2;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, 22, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, 22 * skinScale(), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -257,8 +269,9 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
+    ctx.scale(skin.scale, skin.scale);   // naves más grandes (p. ej. MORADA x2)
     ctx.strokeStyle = skin.stroke;
-    ctx.lineWidth   = 1.5;
+    ctx.lineWidth   = 1.5 / skin.scale;  // mismo grosor visual que el resto
     ctx.lineJoin    = 'round';
 
     // Silueta de la skin activa
@@ -648,7 +661,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * pointsMult();
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
       }
@@ -663,7 +676,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += STAR_POINTS;
+        score += STAR_POINTS * pointsMult();
         explode(s.x, s.y, 12);
       }
     }
@@ -719,7 +732,7 @@ function drawLifeIcon(x, y) {
   ctx.strokeStyle = skin.stroke;
   ctx.lineWidth   = 1.2;
   ctx.lineJoin    = 'round';
-  strokePoly(skin.verts, 0.45);
+  strokePoly(skin.verts, 0.45 / skin.scale);   // tamaño fijo en el HUD
   ctx.restore();
 }
 
@@ -754,6 +767,15 @@ function drawHUD() {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f6a';
     ctx.fillText(`TRIPLE ${ship.tripleTimer.toFixed(1)}s`, 14, statusY);
+    statusY += 22;
+  }
+
+  const skin = SKINS[currentSkin];
+  if (skin.pointsMult > 1) {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = skin.stroke;
+    ctx.fillText(`${skin.pointsMult}X PUNTOS`, 14, statusY);
+    statusY += 22;
   }
 
   ctx.textAlign   = 'left';
@@ -798,19 +820,25 @@ function drawSkinMenu() {
       ctx.strokeRect(x - CELL / 2, y - CELL / 2, CELL, CELL);
     }
 
-    // Vista previa de la silueta (nariz arriba)
+    // Vista previa de la silueta (nariz arriba), siempre del mismo tamaño en pantalla
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(-Math.PI / 2);
     ctx.strokeStyle = sel ? skin.stroke : 'rgba(255,255,255,0.3)';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
-    strokePoly(skin.verts, 1.6);
+    strokePoly(skin.verts, 1.6 / skin.scale);
     ctx.restore();
 
     ctx.font      = sel ? 'bold 15px monospace' : '13px monospace';
     ctx.fillStyle = sel ? '#4ff' : 'rgba(255,255,255,0.5)';
     ctx.fillText(skin.name, x, y + CELL / 2 + 24);
+
+    if (skin.pointsMult > 1) {
+      ctx.font      = sel ? 'bold 13px monospace' : '12px monospace';
+      ctx.fillStyle = sel ? skin.stroke : 'rgba(255,255,255,0.35)';
+      ctx.fillText(`${skin.pointsMult}X PUNTOS`, x, y + CELL / 2 + 44);
+    }
 
     x += CELL + GAP;
   }
