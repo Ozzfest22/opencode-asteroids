@@ -42,6 +42,8 @@ Luego visita `http://localhost:3000`.
 | Pequeño   | 100    |
 | Estrella fugaz | 150 |
 
+Con la skin **MORADA** todos los puntos se multiplican por 2 (p. ej. una estrella fugaz vale 300).
+
 ## Características
 
 - 3 vidas con invencibilidad temporal al reaparecer (parpadeo)
@@ -54,4 +56,6 @@ Luego visita `http://localhost:3000`.
 
 ## Skins
 
-Cambia la apariencia de la nave con la tecla `S`: se abre un selector con vista previa de cada skin y el juego queda pausado. Cada skin define el color de la línea, el color de la llama del propulsor y su propia silueta (las colisiones siguen siendo idénticas en todas). Las skins incluidas son **CLÁSICA**, **FLECHA**, **DELTA** y **DIAMANTE**, y la elegida se guarda en `localStorage` para recordarla entre sesiones.
+Cambia la apariencia de la nave con la tecla `S`: se abre un selector con vista previa de cada skin y el juego queda pausado. Cada skin define el color de la línea, el color de la llama del propulsor y su propia silueta. Las skins incluidas son **CLÁSICA**, **FLECHA**, **DELTA**, **DIAMANTE** y **MORADA**, y la elegida se guarda en `localStorage` para recordarla entre sesiones.
+
+**MORADA** es la nave pesada: es morada, del doble de tamaño que la original (y su hitbox también es el doble, así que es más fácil de impactar), pero a cambio otorga el doble de puntos. Las demás skins mantienen colisiones idénticas entre sí.
