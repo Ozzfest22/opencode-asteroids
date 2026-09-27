@@ -37,6 +37,7 @@ Luego visita `http://localhost:3000`.
 | Grande    | 20     |
 | Mediano   | 50     |
 | Pequeño   | 100    |
+| Estrella fugaz | 150 |
 
 ## Características
 
@@ -44,3 +45,4 @@ Luego visita `http://localhost:3000`.
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides
 - Power-up **Velocidad**: la nave se mueve al doble de rápido durante 5 segundos (aparece periódicamente en el mapa)
+- Asteroide especial **estrella fugaz**: entra por un borde más rápido que los demás, cruza el mapa y desaparece a los 5 s; se destruye de un disparo (150 puntos) y mata a la nave si choca
